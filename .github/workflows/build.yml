@@ -1,4 +1,5 @@
 name: build
+
 on:
   push:
     branches:
@@ -6,25 +7,47 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   build:
-    runs-on: build
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       JAVA_OPTS: -Xms15G -Xmx15G -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
-      JVM_OPTS:  -Xms15G -Xmx15G -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+      JVM_OPTS: -Xms15G -Xmx15G -Xss10M -XX:MaxMetaspaceSize=2G -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+
     steps:
-    - uses: actions/checkout@v3.0.2
-      with:
-        fetch-depth: 0
-    - uses: olafurpg/setup-scala@v13
-      with:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup JDK
+        uses: olafurpg/setup-scala@v13
+        with:
           java-version: openjdk@21.0.2=tgz+https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz
 
-    - name: Build JVM
-      run: |
-        sbt '+kyoJVM/test'
+      - name: Install sbt
+        run: |
+          echo "deb https://maven.pkg.github.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+          curl -sL "https://some-new-url/pgp_keys.asc" | gpg --dearmor | sudo tee /usr/share/keyrings/sbt-archive-keyring.gpg >/dev/null
+          sudo tee /etc/apt/preferences.d/sbt.pref <<EOF
+          Package: *
+          Pin: origin maven.pkg.github.com
+          Pin-Priority: 600
+          EOF
+          sudo apt-get update
+          sudo apt-get install sbt
 
-    - name: Build JS
-      run: |
-        sbt '+kyoJS/test'
+      - name: Build and Test JVM
+        run: sbt '+kyoJVM/test'
+
+      - name: Build and Test JS
+        run: sbt '+kyoJS/test'
+
+      - name: Measure Bytecode Size
+        run: |
+          echo "Bytecode size of core$.transformLoop method:"
+          javap -c -p -v -classpath target/scala-2.13/classes kyo.core$ | grep -A 10 "transformLoop("
+
+          echo "Bytecode size of core$.handleLoop method:"
+          javap -c -p -v -classpath target/scala-2.13/classes kyo.core$ | grep -A 10 "handleLoop("
+        shell: bash

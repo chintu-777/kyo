@@ -45,10 +45,10 @@ object core:
     end extension
 
     inline def transform[T, S, U, S2](v: T < S)(inline k: T => (U < S2))(using inline _trace: Trace): U < (S & S2) =
-        def transformLoop(v: T < S): U < (S & S2) =
+        @tailrec def transformLoop(v: T < S): U < (S & S2) =
             v match
                 case kyo: Suspend[MX, Any, T, S] @unchecked =>
-                    new Continue[MX, Any, U, S & S2](kyo):
+                    val cont = new Continue[MX, Any, U, S & S2](kyo):
                         def trace = _trace
                         def apply(v: Any, s: Safepoint[S & S2], l: Locals.State) =
                             val r = kyo(v, s.asInstanceOf[Safepoint[S]], l)
@@ -58,6 +58,7 @@ object core:
                                 transformLoop(r)
                             end if
                         end apply
+                    cont.apply(_, _, _)
                 case v =>
                     k(v.asInstanceOf[T])
         transformLoop(v)
@@ -70,8 +71,6 @@ object core:
             state: State,
             value: T < (E & S2)
         )(using inline tag: Tag[E], inline flat: Flat[T], inline _trace: Trace): Result[T] < (S & S2) =
-            def _handleLoop(st: State, value: T < (E & S & S2)): Result[T] < (S & S2) =
-                handleLoop(st, value)
             @tailrec def handleLoop(st: State, value: T < (E & S & S2)): Result[T] < (S & S2) =
                 value match
                     case kyo: Suspend[e.Command, Any, T, S2] @unchecked
@@ -83,9 +82,8 @@ object core:
                                 resultLoop(kyo)
                             case r =>
                                 r.asInstanceOf[Result[T]]
-                        end match
                     case kyo: Suspend[MX, Any, T, E & S & S2] @unchecked =>
-                        new Continue[MX, Any, Result[T], S & S2](kyo):
+                        val cont = new Continue[MX, Any, Result[T], S & S2](kyo):
                             def trace = _trace
                             def apply(v: Any, s: Safepoint[S & S2], l: Locals.State) =
                                 val r =
@@ -93,23 +91,21 @@ object core:
                                     catch
                                         case ex if NonFatal(ex) =>
                                             handler.failed(st, ex)
-                                _handleLoop(st, r)
+                                handleLoop(st, r)
                             end apply
+                        cont.apply(_, _, _)
                     case v =>
                         handler.done(st, v.asInstanceOf[T])
-            def resultLoop(v: (Result[T] | handler.Resume[T, S2]) < (S & S2)): Result[T] < (S & S2) =
+            @tailrec def resultLoop(v: (Result[T] | handler.Resume[T, S2]) < (S & S2)): Result[T] < (S & S2) =
                 v match
                     case r: handler.Resume[T, S & S2] @unchecked =>
-                        _handleLoop(r.st, r.v)
+                        handleLoop(r.st, r.v)
                     case kyo: Suspend[MX, Any, Result[T] | handler.Resume[T, S2], S & S2] @unchecked =>
-                        new Continue[MX, Any, Result[T], S & S2](kyo):
+                        val cont = new Continue[MX, Any, Result[T], S & S2](kyo):
                             def trace = _trace
-                            def apply(
-                                v: Any,
-                                s: Safepoint[S & S2],
-                                l: Locals.State
-                            ) =
+                            def apply(v: Any, s: Safepoint[S & S2], l: Locals.State) =
                                 resultLoop(kyo(v, s, l))
+                        cont.apply(_, _, _)
                     case r =>
                         r.asInstanceOf[Result[T]]
             handleLoop(state, value)
