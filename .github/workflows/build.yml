@@ -21,6 +21,13 @@ jobs:
       with:
           java-version: openjdk@21.0.2=tgz+https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz
 
+    - name: Install sbt
+      run: |
+        echo "deb https://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
+        curl -sL "https://keybase.io/sbt/pgp_keys.asc" | sudo apt-key add
+        sudo apt-get update
+        sudo apt-get install sbt
+
     - name: Build JVM
       run: |
         sbt '+kyoJVM/test'
@@ -28,3 +35,11 @@ jobs:
     - name: Build JS
       run: |
         sbt '+kyoJS/test'
+
+    - name: Measure and Print Bytecode Size
+      run: |
+        echo "Bytecode size of Handle class:"
+        javap -c -p -v -classpath target/scala-2.13/classes your.package.Handle | grep -E "Code:|Method"
+        echo "Bytecode size of Transform class:"
+        javap -c -p -v -classpath target/scala-2.13/classes your.package.Transform | grep -E "Code:|Method"
+      shell: bash
