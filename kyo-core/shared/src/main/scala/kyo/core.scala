@@ -56,6 +56,8 @@ object core:
                                 s.suspend(transformLoop(r))
                             else
                                 transformLoop(r)
+                            end if
+                        end apply
                     cont.apply(_, _, _)
                 case v =>
                     k(v.asInstanceOf[T])
@@ -90,6 +92,7 @@ object core:
                                         case ex if NonFatal(ex) =>
                                             handler.failed(st, ex)
                                 handleLoop(st, r)
+                            end apply
                         cont.apply(_, _, _)
                     case v =>
                         handler.done(st, v.asInstanceOf[T])
@@ -101,7 +104,7 @@ object core:
                         val cont = new Continue[MX, Any, Result[T], S & S2](kyo):
                             def trace = _trace
                             def apply(v: Any, s: Safepoint[S & S2], l: Locals.State) =
-                            resultLoop(kyo(v, s, l))
+                                resultLoop(kyo(v, s, l))
                         cont.apply(_, _, _)
                     case r =>
                         r.asInstanceOf[Result[T]]
@@ -249,6 +252,6 @@ object core:
         end Continue
 
         inline def fromKyo[T, S](inline v: Kyo[T, S]): T < S =
-            v
+    v
     end internal
 end core
