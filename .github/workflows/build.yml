@@ -28,7 +28,12 @@ jobs:
       - name: Install sbt
         run: |
           echo "deb https://maven.pkg.github.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list
-          curl -sL "https://some-new-url/pgp_keys.asc" | sudo apt-key add
+          curl -sL "https://some-new-url/pgp_keys.asc" | gpg --dearmor | sudo tee /usr/share/keyrings/sbt-archive-keyring.gpg >/dev/null
+          sudo tee /etc/apt/preferences.d/sbt.pref <<EOF
+          Package: *
+          Pin: origin maven.pkg.github.com
+          Pin-Priority: 600
+          EOF
           sudo apt-get update
           sudo apt-get install sbt
 
