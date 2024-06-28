@@ -252,6 +252,6 @@ object core:
         end Continue
 
         inline def fromKyo[T, S](inline v: Kyo[T, S]): T < S =
-    v
+            v
     end internal
 end core
